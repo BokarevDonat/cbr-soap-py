@@ -16,9 +16,9 @@ Tasks:
 2. what is the difference between <http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?op=Ruonia>(Dataset) and 
   <http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?op=RuoniaXML>(XML)
 3. explain what is service description - <http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?WSDL>, how it can be accessed by 
-  ```pysimplesoap.client``` (deliverable - sample code)?
-4. how the data (responses) obtained from CBR website can be storred locally to minimise load on the CBR web site
-5. what is ```MainInfoXML()``` - is this a duplicate of all other data, how it can be accessed (deliverable - sample code)
+  pysimplesoap.client (deliverable - sample code)?
+4. how the data (responses) obtained from CBR website can be storred locally to minimise load on the CBR web site (deliverable - sample code)
+5. what is MainInfoXML() - is this a duplicate of all other data, how it can be accessed (deliverable - sample code)
 
 
 Work started at [cbr_soap.py](cbr_soap.py)
