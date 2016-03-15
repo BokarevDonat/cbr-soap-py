@@ -10,6 +10,7 @@ Implementation requirements:
 - ```Веб-сервис: www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx```
 
 Tasks:
+
 1. get ```Ruonia (FromDate, ToDate)``` rates for last month, described at <http://www.cbr.ru/scripts/Root.asp?PrtId=DWS> and 
   <http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?op=Ruonia> (deliverable - sample code)
 2. what is the difference between <http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?op=Ruonia>(Dataset) and 
