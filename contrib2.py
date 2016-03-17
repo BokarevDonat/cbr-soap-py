@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-
-#âêðàòöå, íà ñàìîì äåëå òàì íåò íè÷åãî ñëîæíîãî 
-#WSDL íóæåí ÷òîáû îáüÿâèòü ïðèëîæåíèþ êàêàÿ ñòðóêòóðà áóäåò ïîòðåáëÿòüñÿ âýáñåðâèñîì
-#âýáñåðâèñ - ýòî îáû÷íûé xml ñëóøàòåëü è îòïðàâèòåëü òàêæå â ôîðìàòå XML
-#ñëåäîâàòåëüíî ðåçóëüòàò ìîæíî ðàñïàðñèòü è ïîëó÷èòü XML
-#âîò ïðèìåð êîäà äëÿ ðàáîòû ñ âýáñåðâèñîì áåç âñÿêèõ ìóäðûõ áèáëèîòåê:
-#âàì äëÿ ïîíèìàíèÿ ðàáîòû ñ âýáñåðâèñîì íå õâàòèëî ïðîñòî ïðèëîæåíèÿ SoapUI. ïîñìîòðèòå êàê â íåì âñå ðàáîòàåò è âñå ïîéìåòå
+ 
+# WSDL нужен чтобы обьявить приложению какая структура будет потребляться вэбсервисом
+# вэбсервис - это обычный xml слушатель и отправитель также в формате XML
+# следовательно результат можно распарсить и получить XML
+# вот пример кода для работы с вэбсервисом без всяких мудрых библиотек:
+# вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. посмотрите как в нем все работает и все поймете
  
 import requests
 
@@ -63,9 +62,9 @@ print (resp.content)
                         # <xs:element name="ro">
                            # <xs:complexType>
                               # <xs:sequence>
-                                 # <xs:element name="D0" msdata:Caption="Äàòà" type="xs:dateTime" minOccurs="0"/>
-                                 # <xs:element name="ruo" msdata:Caption="Ñòàâêà, %" type="xs:decimal" minOccurs="0"/>
-                                 # <xs:element name="vol" msdata:Caption="Îáúåì ñäåëîê,ïî êîòîðûì ïðîèçâåäåí ðàñ÷åò ñòàâêè RUONIA, ìëðä. ðóá." type="xs:decimal" minOccurs="0"/>
+                                 # <xs:element name="D0" msdata:Caption="Дата" type="xs:dateTime" minOccurs="0"/>
+                                 # <xs:element name="ruo" msdata:Caption="Ставка, %" type="xs:decimal" minOccurs="0"/>
+                                 # <xs:element name="vol" msdata:Caption="Объем сделок,по которым произведен расчет ставки RUONIA, млрд. руб." type="xs:decimal" minOccurs="0"/>
                               # </xs:sequence>
                            # </xs:complexType>
                         # </xs:element>
