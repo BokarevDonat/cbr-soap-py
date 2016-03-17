@@ -10,6 +10,7 @@
 # посмотрите как в нем все работает и все поймете
  
 import requests
+import xml.etree.ElementTree as ET
 
 url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
 headers = {'content-type': 'text/xml'} 
@@ -26,8 +27,12 @@ cbr_body = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 headers = {'Content-Type': 'text/xml; charset=utf-8'
+
+#
 # note: seems to work without length parameter 
 # , 'Content-Length': len(cbr_body)
+#
+
 , 'SOAPAction': 'http://web.cbr.ru/Ruonia'
 }
 
@@ -41,19 +46,19 @@ print (resp.content)
 #               better if obtained in proper encoding, rather than decoded as string locally     
 
 # todo (critical):  
-#               parse xml to contained get data
+#               write parse_xml() to contained get data
 #               must pass assert below 
  
 target_result =  [ ('2016-03-14', 11.0700, 150.4600)
                  , ('2016-03-15', 11.1000, 185.8700)]
     
 def parse_xml(response_content):
+
+    root = ET.fromstring(r.text)
+    # ...
     return target_result 
     
 assert parse_xml(resp.content) == target_result
-
-
-
 
 
 # SOAP UI response to *cbr_body*
