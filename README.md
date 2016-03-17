@@ -1,7 +1,7 @@
 # SOAP interface to Bank of Russia (CBR) online data
 
 - Text description of CBR backend <http://www.cbr.ru/scripts/root.asp>
-- Some implementation in R <https://github.com/quantviews/CBR/>
+- Some implementation in R <https://github.com/quantviews/CBR/> and PHP <https://github.com/skoshkarev/central_bank_of_russian_federation>
 - Related stackoverflow question <http://stackoverflow.com/questions/19708597/how-to-make-a-soap-request-by-using-soappy>
 - Dive into Python [SOAP chapter](http://www.diveintopython.net/soap_web_services)
 
