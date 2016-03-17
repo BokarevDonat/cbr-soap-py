@@ -9,8 +9,11 @@
 # вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. 
 # посмотрите как в нем все работает и все поймете
  
+from bs4 import BeautifulSoup
+from dateutil.parser import parse as parse_dt
+
 import requests
-import xml.etree.ElementTree as ET
+
 
 url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
 headers = {'content-type': 'text/xml'} 
@@ -26,38 +29,43 @@ cbr_body = """<?xml version="1.0" encoding="utf-8"?>
 </soapenv:Envelope>
 """
 
-headers = {'Content-Type': 'text/xml; charset=utf-8'
+headers = {
+    'Content-Type': 'text/xml; charset=utf-8',
 
-#
-# note: seems to work without length parameter 
-# , 'Content-Length': len(cbr_body)
-#
+    #
+    # note: seems to work without length parameter
+    # , 'Content-Length': len(cbr_body)
+    #
 
-, 'SOAPAction': 'http://web.cbr.ru/Ruonia'
+    'SOAPAction': 'http://web.cbr.ru/Ruonia'
 }
 
 r = requests.get(url, headers=headers)
-resp = requests.post(url,data=cbr_body, headers=headers)
-print (resp.content)
+resp = requests.post(url, data=cbr_body, headers=headers)
+print (resp.content.decode('utf-8'))
+
 
 # todo (not critical):
 # fix encoding: in resp.content cyrillic letters are shown as \xd0\xbf\xd0\xbe \xd0\xba\xd0\xbe\xd1\x82\xd0\xbe
-#               need to show them as in *reference_response*. 
-#               better if obtained in proper encoding, rather than decoded as string locally     
+#               need to show them as in *reference_response*.
+#               better if obtained in proper encoding, rather than decoded as string locally
 
-# todo (critical):  
+# todo (critical):
 #               write parse_xml() to contained get data
-#               must pass assert below 
- 
-target_result =  [ ('2016-03-14', 11.0700, 150.4600)
-                 , ('2016-03-15', 11.1000, 185.8700)]
-    
-def parse_xml(response_content):
+#               must pass assert below
 
-    root = ET.fromstring(r.text)
-    # ...
-    return target_result 
-    
+target_result = [
+    ('2016-03-14', 11.0700, 150.4600), ('2016-03-15', 11.1000, 185.8700)]
+
+
+def parse_xml(response_content):
+    soup = BeautifulSoup(response_content, 'lxml')
+    results = []
+    for x in soup.find_all('ro'):
+        results.append((parse_dt(x.d0.text).strftime('%Y-%m-%d'), float(x.ruo.text), float(x.vol.text)))
+    return results
+
+
 assert parse_xml(resp.content) == target_result
 
 
@@ -100,5 +108,5 @@ reference_response = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/so
          </RuoniaResult>
       </RuoniaResponse>
    </soap:Body>
-</soap:Envelope> 
+</soap:Envelope>
 """
