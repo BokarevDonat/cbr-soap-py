@@ -35,10 +35,29 @@ r = requests.get(url, headers=headers)
 resp = requests.post(url,data=cbr_body, headers=headers)
 print (resp.content)
 
+# todo (not critical):
+# fix encoding: in resp.content cyrillic letters are shown as \xd0\xbf\xd0\xbe \xd0\xba\xd0\xbe\xd1\x82\xd0\xbe
+#               need to show them as in *reference_response*. 
+#               better if obtained in proper encoding, rather than decoded as string locally     
+
+# todo (critical):  
+#               parse xml to contained get data
+#               must pass assert below 
+ 
+target_result =  [ ('2016-03-14', 11.0700, 150.4600)
+                 , ('2016-03-15', 11.1000, 185.8700)]
+    
+def parse_xml(response_content):
+    return target_result 
+    
+assert parse_xml(resp.content) == target_result
 
 
-# SOAP UI response: *cbr_body*
-reference_response"""<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+
+
+# SOAP UI response to *cbr_body*
+reference_response = """<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
    <soap:Body>
       <RuoniaResponse xmlns="http://web.cbr.ru/">
          <RuoniaResult>
