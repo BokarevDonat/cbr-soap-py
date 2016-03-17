@@ -8,65 +8,86 @@
 # вот пример кода для работы с вэбсервисом без всяких мудрых библиотек:
 # вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. 
 # посмотрите как в нем все работает и все поймете
- 
+
+from datetime import datetime, timedelta
+
 from bs4 import BeautifulSoup
 from dateutil.parser import parse as parse_dt
+from pysimplesoap.client import SoapClient
 
 import requests
 
 
+cbr_namespace = "http://web.cbr.ru/"
 url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
-headers = {'content-type': 'text/xml'} 
-cbr_body = """<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://web.cbr.ru/">
-   <soapenv:Header/>
-   <soapenv:Body>
-      <web:Ruonia>
-         <web:fromDate>2016-03-13</web:fromDate>
-         <web:ToDate>2016-03-15</web:ToDate>
-      </web:Ruonia>
-   </soapenv:Body>
-</soapenv:Envelope>
-"""
+wsdl_url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?wsdl"
 
-headers = {
-    'Content-Type': 'text/xml; charset=utf-8',
-
-    #
-    # note: seems to work without length parameter
-    # , 'Content-Length': len(cbr_body)
-    #
-
-    'SOAPAction': 'http://web.cbr.ru/Ruonia'
-}
-
-r = requests.get(url, headers=headers)
-resp = requests.post(url, data=cbr_body, headers=headers)
-print (resp.content.decode('utf-8'))
+client = SoapClient(wsdl=wsdl_url, namespace=cbr_namespace, trace=False)
+wsdl_info = client.wsdl_parse(wsdl_url)['DailyInfo']['ports']['DailyInfoSoap']['operations']
 
 
-# todo (not critical):
-# fix encoding: in resp.content cyrillic letters are shown as \xd0\xbf\xd0\xbe \xd0\xba\xd0\xbe\xd1\x82\xd0\xbe
-#               need to show them as in *reference_response*.
-#               better if obtained in proper encoding, rather than decoded as string locally
+def call_cbr(operation, *args):
+    """
+    Make SOAP call to cbr.
+    """
+    op_info = wsdl_info[operation]
+    op_params = op_info['input'][operation]
 
-# todo (critical):
-#               write parse_xml() to contained get data
-#               must pass assert below
+    if len(args) != len(op_params):
+        raise Exception('Operation %s requires args: %s' % (operation, op_params))
+
+    params = ''
+    for n, param in enumerate(op_params):
+        value = args[n]
+        if op_params[param] is datetime:
+            value = value.strftime('%Y-%m-%d')
+        if op_params[param] is bool:
+            value = str(value).lower()
+        params += '<web:%(param)s>%(val)s</web:%(param)s>' % {'param': param, 'val': value}
+
+    cbr_body = """<?xml version="1.0" encoding="utf-8"?>
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="%(ns)s">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <web:%(operation)s>
+            %(params)s
+        </web:%(operation)s>
+    </soapenv:Body>
+    </soapenv:Envelope>
+    """ % {
+        'ns': cbr_namespace,
+        'operation': operation,
+        'params': params
+    }
+
+    headers = {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': 'http://web.cbr.ru/%s' % operation
+    }
+
+    response = requests.post(url, data=cbr_body, headers=headers)
+    return BeautifulSoup(response.content, 'lxml')
+
+
+#start = datetime.now() - timedelta(days=30)
+#end = datetime.now()
+
+
+start = datetime(2016, 3, 13)
+end = datetime(2016, 3, 15)
+
+response = call_cbr('Ruonia', start, end)
+
+results = []
+for x in response.find_all('ro'):
+    results.append((parse_dt(x.d0.text).strftime('%Y-%m-%d'), float(x.ruo.text), float(x.vol.text)))
+
 
 target_result = [
     ('2016-03-14', 11.0700, 150.4600), ('2016-03-15', 11.1000, 185.8700)]
 
 
-def parse_xml(response_content):
-    soup = BeautifulSoup(response_content, 'lxml')
-    results = []
-    for x in soup.find_all('ro'):
-        results.append((parse_dt(x.d0.text).strftime('%Y-%m-%d'), float(x.ruo.text), float(x.vol.text)))
-    return results
-
-
-assert parse_xml(resp.content) == target_result
+assert results == target_result
 
 
 # SOAP UI response to *cbr_body*
