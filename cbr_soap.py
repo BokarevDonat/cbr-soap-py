@@ -141,7 +141,7 @@ def as_dict(*t):
 
 def yield_ruonia(start, end):
     # will change to CBR_Response('Ruonia', start, end).get()
-    response = call_cbr('Ruonia', start, end)    
+    response = call_cbr('Ruonia', start, end)
     for x in response.find_all('ro'):
         dt = parse_dt(x.d0.text).strftime('%Y-%m-%d')
         ir = float(x.ruo.text)
@@ -149,13 +149,50 @@ def yield_ruonia(start, end):
         yield as_dict('ruonia_rate', dt, ir)
         yield as_dict('ruonia_vol', dt, vol)
         # intent: this flat data goes to sqlite later
- 
+
+
+def yield_valutes():
+    response = call_cbr('EnumValutes', False)
+    for x in response.find_all('enumvalutes'):
+        result = {
+            'code': x.vcode.text.strip(),
+            'name': x.vname.text.strip(),
+            'eng_name': x.vengname.text.strip(),
+            'nominal': x.vnom.text.strip(),
+            'char_code': x.vcharcode.text.strip() if x.vcharcode else None,
+            'num_code': x.vnumcode.text.strip() if x.vnumcode else None,
+            'common_code': x.vcommoncode.text.strip()}
+        yield result
+
+
+def yield_curs(start, end, code):
+    response = call_cbr('GetCursDynamic', start, end, code)
+    for x in response.find_all('valutecursdynamic'):
+        yield {'date': parse_dt(x.cursdate.text), 'curs': float(x.vcurs.text)}
+
+
+def yield_mkr(start, end):
+    response = call_cbr('MKR', start, end)
+    for x in response.find_all('mkr'):
+        yield {
+            'date': parse_dt(x.cdate.text),
+            'p1': float(x.p1.text),
+            'd1': float(x.d1.text) if x.d1 else None,
+            'd7': float(x.d7.text) if x.d7 else None,
+            'd30': float(x.d30.text) if x.d30 else None,
+            'd90': float(x.d90.text) if x.d90 else None,
+            'd180': float(x.d180.text) if x.d180 else None,
+            'd360': float(x.d360.text) if x.d360 else None,
+        }
+
+
+
 # todo: try write one or several other yield functions 
 # - MKR (FromDate, ToDate) Ставки межбанковского кредитного рынка XSD 
 # - EnumValutes(Seld) Справочник по кодам валют, содержит полный перечень валют котируемых Банком России - чтобы узнать когды валют
 # - GetCursDynamic(FromDate, ToDate, ValutaCode) Получение динамики ежедневных курсов валюты
-#      доллар - todo какой код? 
-#      евро - todo какой код?      
+#      доллар - R01235
+#      евро - R01239
         
 
 if __name__ == "__main__":
@@ -183,7 +220,19 @@ if __name__ == "__main__":
                                               
     # todo: correct if something fails below
     import pandas as pd
-    
+
+    valutes = pd.DataFrame(yield_valutes())
+    valutes.index = valutes.name
+    valutes.to_csv('valutes.csv')
+
+    usd_rate = pd.DataFrame(yield_curs(start, end, 'R01235'))
+    usd_rate.index = usd_rate.date
+    usd_rate.to_csv('usd_rate.csv')
+
+    mkr = pd.DataFrame(yield_mkr(start, end))
+    mkr.index = mkr.date
+    mkr.to_csv('mkr.csv')
+
     def make_df(gen):
         df = pd.DataFrame(gen)
         df = df.pivot(columns='name', values='value', index='date')
