@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """SOAP interface to Bank of Russia online data"""
 
-# --- Requirement --- 
+# --- Comment --- 
 # WSDL нужен чтобы обьявить приложению какая структура будет потребляться вэбсервисом
 # вэбсервис - это обычный xml слушатель и отправитель также в формате XML
 # следовательно результат можно распарсить и получить XML
 # вот пример кода для работы с вэбсервисом без всяких мудрых библиотек:
 # вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. 
-# посмотрите как в нем все работает и все поймете
 
 # --- Requirement ---
 # pysimplesoap installed from git repo by:
-# pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master
-# 
+# pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master# 
 
 from datetime import datetime, timedelta
 
@@ -118,6 +116,8 @@ def call_cbr(operation, *args):
     headers      = make_headers(operation)
     return Response(cbr_xml_body, headers).get()
 
+# not todo: pack call_cbr() and make*() into one class CBR_Response('Ruonia', start, end )
+# 
 
 def yield_ruonia(start, end):
     response = call_cbr('Ruonia', start, end)
@@ -136,6 +136,12 @@ def yield_ruonia(start, end):
 #      доллар - todo какой код? 
 #      евро - todo какой код?      
         
+
+# not todo, not run
+# 
+# 
+# 
+
 
 if __name__ == "__main__":
 
