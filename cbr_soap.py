@@ -125,7 +125,7 @@ def as_dict(*t):
 
 
 def yield_ruonia(start, end):
-    # will change to CBR_Response('Ruonia', start, end) 
+    # will change to CBR_Response('Ruonia', start, end).get()
     response = call_cbr('Ruonia', start, end)    
     for x in response.find_all('ro'):
         dt = parse_dt(x.d0.text).strftime('%Y-%m-%d')
