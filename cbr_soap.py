@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """SOAP interface to Bank of Russia online data"""
 
-# --- Requirement --- 
+# --- Comment --- 
 # WSDL нужен чтобы обьявить приложению какая структура будет потребляться вэбсервисом
 # вэбсервис - это обычный xml слушатель и отправитель также в формате XML
 # следовательно результат можно распарсить и получить XML
-# вот пример кода для работы с вэбсервисом без всяких мудрых библиотек:
-# вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. 
-# посмотрите как в нем все работает и все поймете
+# для понимания работы с вэбсервисом - приложение SoapUI
 
 # --- Requirement ---
 # pysimplesoap installed from git repo by:
@@ -179,8 +177,12 @@ if __name__ == "__main__":
    
     ruonia_df = make_df(yield_ruonia(start, end))
     ruonia_df.to_csv('ruonia.txt')
-    print(ruonia_df.to_csv())
-
+    orint(ruonia_df.to_csv())
+        
+    # df = pd.DataFrame(yield_ruonia(start, end))
+    ## reshape/pivot using date/value
+    # df = df.pivot(columns='name', values='value', index='date')
+    # df.index = pd.to_datetime(df.index)
 
             
 # SOAP UI response to *cbr_body*
