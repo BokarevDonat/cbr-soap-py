@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """SOAP interface to Bank of Russia online data"""
 
-# --- Comment --- 
+# --- Requirement --- 
 # WSDL нужен чтобы обьявить приложению какая структура будет потребляться вэбсервисом
 # вэбсервис - это обычный xml слушатель и отправитель также в формате XML
 # следовательно результат можно распарсить и получить XML
 # вот пример кода для работы с вэбсервисом без всяких мудрых библиотек:
 # вам для понимания работы с вэбсервисом не хватило просто приложения SoapUI. 
+# посмотрите как в нем все работает и все поймете
 
 # --- Requirement ---
 # pysimplesoap installed from git repo by:
-# pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master# 
+# pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master
+# 
 
 from datetime import datetime, timedelta
 
@@ -116,17 +118,23 @@ def call_cbr(operation, *args):
     headers      = make_headers(operation)
     return Response(cbr_xml_body, headers).get()
 
-# not todo: pack call_cbr() and make*() into one class CBR_Response('Ruonia', start, end )
-# 
+# not todo: CBR_Response(operation, *args) to include call_cbr() and make_*() functions
+
+def as_dict(*t):
+    return { 'name': t[0]
+           , 'date': t[1],
+           , 'value': t[2]} 
+
 
 def yield_ruonia(start, end):
-    response = call_cbr('Ruonia', start, end)
+    # will change to CBR_Response('Ruonia', start, end) 
+    response = call_cbr('Ruonia', start, end)    
     for x in response.find_all('ro'):
         dt = parse_dt(x.d0.text).strftime('%Y-%m-%d')
         ir = float(x.ruo.text)
         vol = float(x.vol.text)
-        yield ('ruonia_rate', dt, ir)
-        yield ('ruonia_vol', dt, vol)
+        yield as_dict('ruonia_rate', dt, ir)
+        yield as_dict('ruonia_vol', dt, vol)
         # intent: this flat data goes to sqlite later
  
 # todo: try write one or several other yield functions 
@@ -136,12 +144,6 @@ def yield_ruonia(start, end):
 #      доллар - todo какой код? 
 #      евро - todo какой код?      
         
-
-# not todo, not run
-# 
-# 
-# 
-
 
 if __name__ == "__main__":
 
@@ -161,7 +163,24 @@ if __name__ == "__main__":
     # check in assert this *response* is instance of class <class 'bs4.BeautifulSoup'>
     # check *response* content as decoded string equals *reference_response_string* with whitespace removed
             
-    assert list(yield_ruonia(start, end)) == [('ruonia_rate', '2016-03-14', 11.07), ('ruonia_vol', '2016-03-14', 150.46), ('ruonia_rate', '2016-03-15', 11.1), ('ruonia_vol', '2016-03-15', 185.87)]
+    assert list(yield_ruonia(start, end)) == [as_dict('ruonia_rate', '2016-03-14',  11.07), 
+                                              as_dict('ruonia_vol',  '2016-03-14', 150.46), 
+                                              as_dict('ruonia_rate', '2016-03-15',  11.1 ), 
+                                              as_dict('ruonia_vol',  '2016-03-15', 185.87)]
+                                              
+    # todo: correct if something fails below
+    import pandas as pd
+    
+    def make_df(gen):
+        df = pd.DataFrame(gen)
+        df = df.pivot(columns='name', values='value', index='date')
+        df.index = pd.to_datetime(df.index)
+        return df      
+   
+    ruonia_df = make_df(yield_ruonia(start, end))
+    ruonia_df.to_csv('ruonia.txt')
+    print(ruonia_df.to_csv())
+
 
             
 # SOAP UI response to *cbr_body*
