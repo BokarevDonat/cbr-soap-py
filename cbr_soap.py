@@ -11,8 +11,11 @@
 # pysimplesoap installed from git repo by:
 # pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master
 # 
+import pickle
 
+from collections import OrderedDict
 from datetime import datetime, timedelta
+from os.path import exists
 
 from bs4 import BeautifulSoup
 from dateutil.parser import parse as parse_dt
@@ -22,45 +25,58 @@ import requests
 
 
 class SourceAddress():
-
     cbr_namespace = "http://web.cbr.ru/"
     url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
     wsdl_url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?wsdl"
 
+
 class DataSOAP(SourceAddress):
-    
+    cache_file_name = 'wsdl_cache.pickle'
+
     def update(self):
         client = SoapClient(wsdl=self.wsdl_url, namespace=self.cbr_namespace, trace=False)
         self.wsdl_info = client.wsdl_parse(self.wsdl_url)['DailyInfo']['ports']['DailyInfoSoap']['operations']
-        # todo: cache self.wsdl_info as pickle
+
+        for op in self.wsdl_info:
+            # Convert unpicklable Struct to OrderedDict
+            inputs = self.wsdl_info[op]['input']
+            for x in inputs:
+                inputs[x] = OrderedDict(inputs[x])
+
+            # NOTE: outputs are unpicklable too. Delete them.
+            del self.wsdl_info[op]['output']
+
+        with open(self.cache_file_name, 'wb') as f:
+            pickle.dump(self.wsdl_info, f)
 
     def load_local(self):
-        # read self.wsdl_info from local pickle  
-        pass
-    
+        with open(self.cache_file_name, 'rb') as f:
+            self.wsdl_info = pickle.load(f)
+
     def __init__(self):
-        self.update()
-        # change update() to load_local()
+        if exists(self.cache_file_name):
+            self.load_local()
+        else:
+            self.update()
+
 
 class Parameters(DataSOAP):
-       
     def __init__(self, operation):
         DataSOAP.__init__(self)
         op_info = self.wsdl_info[operation]
         self.dict = op_info['input'][operation]
 
-class Response(SourceAddress):
 
+class Response(SourceAddress):
     def __init__(self, body, headers):
         self.body = body
-        self.headers = headers       
+        self.headers = headers
 
     def get(self):
         response = requests.post(self.url, data=self.body, headers=self.headers)
-        return BeautifulSoup(response.content, 'lxml')  
-    
-       
-        
+        return BeautifulSoup(response.content, 'lxml')
+
+
 def make_xml_parameter_string(operation, *args):
     """
     Make text string of parameters for POST XML based on *operation* name and *args
@@ -82,8 +98,8 @@ def make_xml_parameter_string(operation, *args):
     
     return param_string
 
-def make_body(operation, param_string):
 
+def make_body(operation, param_string):
     return """<?xml version="1.0" encoding="utf-8"?>
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="%(ns)s">
     <soapenv:Header/>
@@ -99,18 +115,18 @@ def make_body(operation, param_string):
         'params': param_string
     }
 
-def make_headers(operation):
 
+def make_headers(operation):
     return {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': 'http://web.cbr.ru/%s' % operation
     }
-        
+
+
 def call_cbr(operation, *args):
     """
     SOAP call to CBR backend
     """
-    
     param_string = make_xml_parameter_string(operation, *args)    
     cbr_xml_body = make_body(operation, param_string)    
     headers      = make_headers(operation)
@@ -118,10 +134,9 @@ def call_cbr(operation, *args):
 
 # not todo: CBR_Response(operation, *args) to include call_cbr() and make_*() functions
 
+
 def as_dict(*t):
-    return { 'name': t[0]
-           , 'date': t[1],
-           , 'value': t[2]} 
+    return {'name': t[0], 'date': t[1], 'value': t[2]}
 
 
 def yield_ruonia(start, end):
@@ -177,7 +192,7 @@ if __name__ == "__main__":
    
     ruonia_df = make_df(yield_ruonia(start, end))
     ruonia_df.to_csv('ruonia.txt')
-    orint(ruonia_df.to_csv())
+    print(ruonia_df.to_csv())
         
     # df = pd.DataFrame(yield_ruonia(start, end))
     ## reshape/pivot using date/value
