@@ -7,28 +7,29 @@ SAMPLE_DATE_END = datetime(2016, 3, 15)
 
 def test_param_string():
     WEB_1 = '<web:fromDate>2016-03-13</web:fromDate><web:ToDate>2016-03-15</web:ToDate>'
-    assert WEB_1 == cbr_soap.make_xml_parameter_string('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END)
+    assert WEB_1 == cbr_soap.Response('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).make_xml_parameter_string()
 
 def test_cbr_call(): 
-    response = cbr_soap.call_cbr('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END)
+    response = cbr_soap.Response('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).get()
     assert(isinstance(response, BeautifulSoup))
 
     reference = BeautifulSoup(reference_ruonia_xml_string().strip(), 'lxml')
     assert(reference.prettify() == response.prettify())
 
 def test_yield_ruonia():
-    RUONIA_SAMPLE = [cbr_soap.as_dict(*x) for x in [('ruonia_rate', '2016-03-14',  11.07), 
-                                                    ('ruonia_vol',  '2016-03-14', 150.46), 
-                                                    ('ruonia_rate', '2016-03-15',  11.10), 
-                                                    ('ruonia_vol',  '2016-03-15', 185.87)]
-                                           ]                                           
+    RUONIA_VALUES = [('ruonia_rate', '2016-03-14',  11.07), 
+                     ('ruonia_vol',  '2016-03-14', 150.46), 
+                     ('ruonia_rate', '2016-03-15',  11.10), 
+                     ('ruonia_vol',  '2016-03-15', 185.87)]
+                     
+    RUONIA_SAMPLE = list(cbr_soap.as_dict(*x) for x in RUONIA_VALUES)                    
     assert RUONIA_SAMPLE == list(cbr_soap.yield_ruonia(start = SAMPLE_DATE_START, end = SAMPLE_DATE_END))
 
 def test_ruonia_df():
-    ruonia_df = cbr_soap.get_online_df("ruonia", SAMPLE_DATE_START, SAMPLE_DATE_END) # make_df(yield_ruonia(start, end))
+    ruonia_df = cbr_soap.Frame("ruonia", SAMPLE_DATE_START, SAMPLE_DATE_END).df # make_df(yield_ruonia(start, end))
     SAMPLE_CSV_REPR = "'date,ruonia_rate,ruonia_vol\\n2016-03-14,11.07,150.46\\n2016-03-15,11.1,185.87\\n'"
     assert SAMPLE_CSV_REPR == ruonia_df.to_csv().__repr__()     
-
+    
 
 def test_Parameters():
     # todo: make proper assert to check get_operation_parameters output, maybe several asserts 

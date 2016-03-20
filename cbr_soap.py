@@ -10,9 +10,11 @@
 # --- Requirement ---
 # pysimplesoap installed from git repo by:
 # pip install -e git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=soap2py-master
+# warning: installs to repo 
 
 import pickle
 import requests
+import dataset
 import os
 
 from collections import OrderedDict
@@ -23,6 +25,8 @@ from bs4 import BeautifulSoup
 from dateutil.parser import parse as parse_dt
 from pysimplesoap.client import SoapClient
 
+CSV_FOLDER = 'csv'
+
 
 class SourceAddress():
     cbr_namespace = "http://web.cbr.ru/"
@@ -30,44 +34,70 @@ class SourceAddress():
     wsdl_url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?wsdl"
 
 
-class DataSOAP(SourceAddress):
+class WDSL(SourceAddress):
+    
     cache_file_name = 'wsdl_cache.pickle'
-
-    def update(self):
-        client = SoapClient(wsdl=self.wsdl_url, namespace=self.cbr_namespace, trace=False)
-        self.wsdl_info = client.wsdl_parse(self.wsdl_url)['DailyInfo']['ports']['DailyInfoSoap']['operations']
-
-        for op in self.wsdl_info:
-            # Convert unpicklable Struct to OrderedDict
-            inputs = self.wsdl_info[op]['input']
-            for x in inputs:
-                inputs[x] = OrderedDict(inputs[x])
-
-            # NOTE: outputs are unpicklable too. Delete them.
-            del self.wsdl_info[op]['output']
-
-        with open(self.cache_file_name, 'wb') as f:
-            pickle.dump(self.wsdl_info, f)
-
-    def load_local(self):
-        with open(self.cache_file_name, 'rb') as f:
-            self.wsdl_info = pickle.load(f)
-
+    
     def __init__(self):
         if os.path.exists(self.cache_file_name):
-            self.load_local()
+            self.load_local_copy()
         else:
-            self.update()
+            self.load_from_cbr()
 
+    def load_local_copy(self):
+        with open(self.cache_file_name, 'rb') as f:
+            self.wsdl_info = pickle.load(f)
+    
+    def convert_wsdl_info_to_pickable(self):    
+        """Convert unpicklable Struct to OrderedDict"""
+        for op in self.wsdl_info:
+        
+            # pointer links to 'self.wsdl_info', all changes in pointer are recorded in 'self.wsdl_info'
+            pointer = self.wsdl_info[op]['input']
+            for x in pointer:
+                pointer[x] = OrderedDict(pointer[x])
 
-class Parameters(DataSOAP):
+            # 'outputs' are unpicklable and not used here, delete them from 
+            del self.wsdl_info[op]['output']
+    
+    def save_local_copy(self):        
+        with open(self.cache_file_name, 'wb') as f:
+            pickle.dump(self.wsdl_info, f) 
+
+    def load_from_cbr(self):
+        client = SoapClient(wsdl=self.wsdl_url, namespace=self.cbr_namespace, trace=False)
+        self.wsdl_info = client.wsdl_parse(self.wsdl_url)['DailyInfo']['ports']['DailyInfoSoap']['operations']
+        self.convert_wsdl_info_to_pickable() 
+        self.save_local_copy()
+
+        
+class Parameters(WDSL):
+    """ Get WSDL parameters based on *operation* name
+     
+        Accepts as *operation*:
+        
+        'GetReutersCursOnDate', 'Repo_debt', 'SwapDynamic', 'mrrf', 'ROISfix', 'MKRXML', 'SwapDayTotalXML', 
+        'Overnight', 'BiCurBacketXML', 'XVolXML', 'SwapInfoSellUSDVolXML', 'GetReutersCursDynamic', 'GetCursOnDate', 
+        'BiCurBaseXML', 'EnumValutesXML', 'GetCursOnDateXML', 'DV', 'RuoniaXML', 'Repo_debtXML', 'GetSeldCursOnDateXML', 
+        'RepoDebtUSD', 'NewsInfo', 'GetLatestReutersDateTime', 'DragMetDynamic', 'EnumReutersValutesXML', 'SwapInfoSellUSDVol', 
+        'GetLatestDate', 'EnumValutes', 'OstatDynamicXML', 'SwapDayTotal', 'DVXML', 'OstatDepo', 'MKR', 'Bauction', 
+        'SwapDynamicXML', 'SwapMonthTotalXML', 'BiCurBacket', 'SaldoXML', 'DepoDynamic', 'NewsInfoXML', 'GetCursDynamic', 
+        'Coins_baseXML', 'BiCurBase', 'DragMetDynamicXML', 'ROISfixXML', 'Coins_base', 'BauctionXML', 'MainInfoXML', 'Saldo', 
+        'Ruonia', 'AllDataInfoXML', 'GetLatestDateTime', 'mrrf7D', 'SwapInfoSellUSD', 'mrrfXML', 'SwapMonthTotal', 'DepoDynamicXML', 
+        'GetLatestDateSeld', 'GetLatestDateTimeSeld', 'OmodInfoXML', 'GetReutersCursDynamicXML', 'mrrf7DXML', 'EnumReutersValutes', 
+        'FixingBaseXML', 'RepoDebtUSDXML', 'SwapInfoSellUSDXML', 'GetCursDynamicXML', 'GetReutersCursOnDateXML', 'OvernightXML', 
+        'OstatDynamic', 'OstatDepoXML', 'GetSeldCursOnDate', 'XVol', 'FixingBase'
+    """
+    
     def __init__(self, operation):
-        DataSOAP.__init__(self)
+        WDSL.__init__(self)
+        if operation not in self.wsdl_info.keys():
+            raise KeyError ("Operation not recognised:" + operation)
         op_info = self.wsdl_info[operation]
         self.dict = op_info['input'][operation]
 
-
-class Response(SourceAddress):
+        
+class POST_Request(SourceAddress):
     def __init__(self, body, headers):
         self.body = body
         self.headers = headers
@@ -76,83 +106,85 @@ class Response(SourceAddress):
         response = requests.post(self.url, data=self.body, headers=self.headers)
         return BeautifulSoup(response.content, 'lxml')
 
+class Response():
 
-def make_xml_parameter_string(operation, *args):
-    """
-    Make text string of parameters for POST XML based on *operation* name and *args
-    """
+    def make_xml_parameter_string(self):
+        """ Make string of parameters for POST XML based on *operation* name and *args"""
+        
+        op_params = Parameters(self.operation).dict
+
+        if len(self.args) != len(op_params):
+            raise Exception('Operation %s requires following arguements: %s' % (operation, op_params))
+
+        self.param_string = ''
+        for i, param in enumerate(op_params):
+            value = self.args[i]
+            if op_params[param] is datetime:
+                value = value.strftime('%Y-%m-%d')
+            if op_params[param] is bool:
+                value = str(value).lower()
+            self.param_string += '<web:%(param)s>%(val)s</web:%(param)s>' % {'param': param, 'val': value}
+        
+        return self.param_string
+
+
+    def make_body(self):
     
-    op_params = Parameters(operation).dict
-
-    if len(args) != len(op_params):
-        raise Exception('Operation %s requires args: %s' % (operation, op_params))
-
-    param_string = ''
-    for n, param in enumerate(op_params):
-        value = args[n]
-        if op_params[param] is datetime:
-            value = value.strftime('%Y-%m-%d')
-        if op_params[param] is bool:
-            value = str(value).lower()
-        param_string += '<web:%(param)s>%(val)s</web:%(param)s>' % {'param': param, 'val': value}
+        self.make_xml_parameter_string()        
     
-    return param_string
+        return """<?xml version="1.0" encoding="utf-8"?>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="%(ns)s">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <web:%(operation)s>
+                %(params)s
+            </web:%(operation)s>
+        </soapenv:Body>
+        </soapenv:Envelope>
+        """ % {
+            'ns': SourceAddress().cbr_namespace,
+            'operation': self.operation,
+            'params': self.param_string
+        }
+
+    def make_headers(self):
+        return {
+            'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': 'http://web.cbr.ru/%s' % self.operation
+        }
 
 
-def make_body(operation, param_string):
-    return """<?xml version="1.0" encoding="utf-8"?>
-    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="%(ns)s">
-    <soapenv:Header/>
-    <soapenv:Body>
-        <web:%(operation)s>
-            %(params)s
-        </web:%(operation)s>
-    </soapenv:Body>
-    </soapenv:Envelope>
-    """ % {
-        'ns': SourceAddress().cbr_namespace,
-        'operation': operation,
-        'params': param_string
-    }
-
-
-def make_headers(operation):
-    return {
-        'Content-Type': 'text/xml; charset=utf-8',
-        'SOAPAction': 'http://web.cbr.ru/%s' % operation
-    }
-
-
-def call_cbr(operation, *args):
-    """
-    SOAP call to CBR backend
-    """
-    param_string = make_xml_parameter_string(operation, *args)    
-    cbr_xml_body = make_body(operation, param_string)    
-    headers      = make_headers(operation)
-    return Response(cbr_xml_body, headers).get()
-
-# not todo: CBR_Response(operation, *args) to include call_cbr() and make_*() functions
-
-
+    def __init__(self, operation, *args):
+        """SOAP call to CBR backend"""
+        
+        self.operation = operation
+        self.args = args
+        xml_body = self.make_body()    
+        headers = self.make_headers()
+        self.response = POST_Request(xml_body, headers).get()
+    
+    def get(self):
+        return self.response
+        
 def as_dict(*t):
+    # todo: must check t[0] is datetime, t[1] is date, t[2] is float or None
     return {'name': t[0], 'date': t[1], 'value': t[2]}
 
+def get_date(txt):
+    return parse_dt(txt).strftime('%Y-%m-%d')
 
 def yield_ruonia(start, end):
-    # will change to CBR_Response('Ruonia', start, end).get()
-    response = call_cbr('Ruonia', start, end)
+    response = Response('Ruonia', start, end).get()
     for x in response.find_all('ro'):
-        dt = parse_dt(x.d0.text).strftime('%Y-%m-%d')
+        dt = get_date(x.d0.text)
         ir = float(x.ruo.text)
         vol = float(x.vol.text)
         yield as_dict('ruonia_rate', dt, ir)
         yield as_dict('ruonia_vol', dt, vol)
-        # intent: this flat data goes to sqlite later
 
-
+        
 def yield_currencies():
-    response = call_cbr('EnumValutes', False)
+    response = Response('EnumValutes', False).get()
     for x in response.find_all('enumvalutes'):
         result = {
             'code': x.vcode.text.strip(),
@@ -166,46 +198,55 @@ def yield_currencies():
 
 
 def yield_curs(start, end, code):
-    response = call_cbr('GetCursDynamic', start, end, code)
+    response = Response('GetCursDynamic', start, end, code).get()
     for x in response.find_all('valutecursdynamic'):
-        yield as_dict('USDRUR_CBR', parse_dt(x.cursdate.text), float(x.vcurs.text))
+        yield as_dict('USDRUR_CBR', get_date(x.cursdate.text), float(x.vcurs.text))
 
-
-def yield_mkr(start, end):
-    response = call_cbr('MKR', start, end)
-    for x in response.find_all('mkr'):
-        dt = parse_dt(x.cdate.text)
-        yield as_dict('mbk_p1', dt, float(x.p1.text))
-        yield as_dict('mbk_d1', dt, float(x.d1.text) if x.d1 else None)
         
-        # new todo-1: must yield flat stream as above, complete fucntions
-         
-        # {
-            # 'date': parse_dt(x.cdate.text),
-            # 'p1': float(x.p1.text),
-            # 'd1': float(x.d1.text) if x.d1 else None,
-            # 'd7': float(x.d7.text) if x.d7 else None,
-            # 'd30': float(x.d30.text) if x.d30 else None,
-            # 'd90': float(x.d90.text) if x.d90 else None,
-            # 'd180': float(x.d180.text) if x.d180 else None,
-            # 'd360': float(x.d360.text) if x.d360 else None,
-        # }
+def yield_mkr(start, end):
 
+    """Generator for Cтавки и объемы межбанковского кредитного рынка."""
 
-# todo: try write one or several other yield functions 
-# - MKR (FromDate, ToDate) Ставки межбанковского кредитного рынка XSD 
-# - EnumValutes(Seld) Справочник по кодам валют, содержит полный перечень валют котируемых Банком России - чтобы узнать когды валют
-# - GetCursDynamic(FromDate, ToDate, ValutaCode) Получение динамики ежедневных курсов валюты
-#      доллар - R01235
-#      евро - R01239
+    names = { 1:'MIBID_RUB_IR', 2:'MIBOR_RUB_IR' 
+    , 3:'MIACR_RUB_IR',    4:'MIACR_IG_RUB_IR'
+    , 5:'MIACR_RUB_VOL',   6:'MIACR_IG_RUB_VOL'
+    , 7:'MIACR_B_RUB',     8:'MIACR_B_RUB_VOL'
+    , 9:'MIBID_USD_IR',   10:'MIBOR_USD_IR'
+    , 11:'MIACR_USD_IR',  12:'MIACR_IG_USВ'
+    , 13:'MIACR_USD_VOL', 14:'MIACR_IG_USD_VOL'
+    , 15:'MIACR_B_USD_IR',16:'MIACR_B_USD_VOL'}
+        
+    """тип 1-MIBID(RUB), 2-MIBOR(RUB), 
+    3-MIACR(RUB), 4-MIACR-IG(RUB), 
+    5-MIACR(RUB, оборот), 6-MIACR-IG(RUB, оборот), 
+    7-MIACR-B(RUB), 8-MIACR-B(RUB, оборот), 
+    9-MIBID(USD), 10-MIBOR(USD), 
+    11-MIACR(USD), 12- MIACR-IG(USВ), 
+    13-MIACR(USD, обороты), 14-MIACR-IG(USD, обороты), 
+    15-MIACR-B(USD), 16 MIACR-B(USD, обороты)"""
+    
+    def _filter(z):   
+            return float (z.text) if z else None
 
-def make_df(gen):
-    df = pd.DataFrame(gen)
-    df = df.pivot(columns='name', values='value', index='date')
-    df.index = pd.to_datetime(df.index)
-    return df 
+    response = Response('MKR', start, end).get()
+    
+    for x in response.find_all('mkr'):
+        #todo: pd.to_datetime
+        dt = get_date(x.cdate.text)
+        var_code = int(x.p1.text)
+        prefix = 'MBK_' + names[var_code] + "_"        
+    
+        # IMPORTANT: yield_* functions must return values by data point, using as_dict()
+        yield as_dict(prefix + 'd1',   dt, _filter(x.d1)  )
+        yield as_dict(prefix + 'd7',   dt, _filter(x.d7)  )
+        yield as_dict(prefix + 'd30',  dt, _filter(x.d30) )
+        yield as_dict(prefix + 'd90',  dt, _filter(x.d90) )
+        yield as_dict(prefix + 'd180', dt, _filter(x.d180))
+        yield as_dict(prefix + 'd360', dt, _filter(x.d360))
+
 
     
+
 def yield_usd(start, end):
     currency_code = 'R01235'
     return yield_curs(start, end, currency_code)
@@ -213,52 +254,130 @@ def yield_usd(start, end):
 def yield_eur(start, end):
     currency_code = 'R01239'
     return yield_curs(start, end, currency_code)    
-    
-def get_online_df(operation, start, end):
-    functions = {'ruonia':yield_ruonia, "usdrur": yield_usd, "eurrur":yield_eur, 'mkr':yield_mkr}
-    gen = functions[operation](start, end)
-    return make_df(gen)
 
-class Interval():
-    """Start and end dates for data import based on incomplete inputs"""
-    # start, end = Interval(start, end).range
-    def __init__(self, start=None, end=None):
-        self.range = None, None 
+class Stream():
+
+    db = dataset.connect('sqlite:///cbr.db')
+    table = db['datapoints']
+
+    # to de used in Stream class, may use Ordered dict
+    functions = {'ruonia':yield_ruonia, 'usdrur': yield_usd, 'eurrur':yield_eur, 'mkr':yield_mkr}
+
+    def __init__(self, operation, start=None, end=None):
+        self.operation = operation  
+        self.clean_interval(start, end)
+    
+    def clean_interval(self, start, end):
+        """Start and end dates for data import based on incomplete inputs""" 
+        self.start, self.end = None, None 
         if start is not None and end is not None:  
-            self.range = start, end       
+            self.start, self.end = start, end       
         elif end is None:
-            end = datetime.now()
+            self.end = datetime.now()
             if start is None:
-                start = datetime.now() - timedelta(days=15)
-        # not todo: check start, end class 
+                self.start = datetime.now() - timedelta(days=7)
+
+        # not todo: check start, end type 
         #           check start > end
-        #           may be a function, not a class
+        
+    def get_stream(self):
+        #warning: unstable order of id,value,name,date
+        return self.functions[self.operation](self.start, self.end)  
+    
+    def to_sql(self):
+        gen = self.get_stream()
+        # need insert_many(gen) with chucks and update
+        for d in gen:
+            self.table.upsert(d, keys = ['date','name','value'])
+            
+        
+class Frame(Stream):
+ 
+    def __init__(self, operation, start=None, end=None):
+        Stream.__init__(self, operation, start, end)
+        self.make_dataframe()        
+
+    def make_dataframe(self):
+        gen = self.get_stream()
+        df = pd.DataFrame(gen)
+        df = df.pivot(columns='name', values='value', index='date')
+        df.index = pd.to_datetime(df.index)
+        self.df = df      
+    
+    def to_csv(self):
+        filename = os.path.join(CSV_FOLDER, self.operation +  ".csv")        
+        self.df.to_csv(filename)
+        return self.df
+
+class DatabaseManager(Stream):
+    
+    def __init__(self):
+        pass
+    
+    def load_all(self):
+        for ticker in self.functions.keys():
+            print("Updating: " + ticker)
+            Stream(ticker).to_sql()  
+    
+    def freeze(self):
+        dataset.freeze(self.table.all(), format='csv', filename='db.txt')   
+    
+    def get_latest_date(self):
+        #return latest (common) date in for all time series 
+        pass
+        
+
+def save_currencies():
+    currencies = pd.DataFrame(yield_currencies())
+    currencies.index = currencies.name
+    currencies.to_csv(os.path.join(CSV_FOLDER,'currencies_info.csv'))
+
     
 if __name__ == "__main__":
-    # note: script section - code from below either goes to test or to functions above
         
     start = datetime(2016, 3, 13)
     end = datetime(2016, 3, 15)
-
-    # currency codes
-    # 'currencies.csv' has useful codes like EUR, USD - may use for column names in dataframe
-    currencies = pd.DataFrame(yield_currencies())
-    currencies.index = currencies.name
-    currencies.to_csv('_currencies_info.csv')
     
-    # rur/usd exhange rate
-    usd_rate = get_online_df("usdrur", start, end)
-    usd_rate.to_csv('_usdrur.csv')
-
-    # rur/usd exhange rate
-    eur_rate = get_online_df("eurrur", start, end)
-    eur_rate.to_csv('_eurrur.csv')
+    # 'currencies.csv' has useful currency codes like EUR, USD may use for column names in dataframe
+    #save_currencies()
     
-    # mkr = Ставки межбанковского кредитного рынка
-    print(list(yield_mkr(start, end)))
-    #mkr = get_online_df("mkr", start, end)
-    #mkr.to_csv('_mkr.csv')    
+    # todo: try check why usd and eur exchange rates are only one data point, should be two for these start and end dates (two woring days)
+    # usd/rur exhange rate
+    #usd_rate = Frame("usdrur", start, end).to_csv()
+    
+    # eur/rur exhange rate
+    #eur_rate = Frame("eurrur", start, end).to_csv()
+    
+    # mkr, cтавки и объемы межбанковского кредитного рынка
+    #mkr = Frame("mkr", start, end).to_csv()    
    
     # ставка ruonia
-    ruonia_df = get_online_df("ruonia", start, end) # make_df(yield_ruonia(start, end))
-    ruonia_df.to_csv('_ruonia.txt')
+    ruonia_df = Frame("ruonia", start, end).to_csv()
+    #Frame("ruonia", start, end).to_sql()
+    
+    d = DatabaseManager()
+    d.load_all()
+    d.freeze()
+    
+#Tenatative list: 
+
+# подготовительное
+# done 1. немного на свой вкус переструктурировать классы - от вас нужен будет комментарий по результатам что у меня получилось 
+# done 2. assert из main переписываю в тесты py.test дальше добавляем тесты по мере добавления нового кода 
+
+# итоговая выгрузка
+# todo 3. несколько рядов данных упаковываю в датафрейм, его пишу в новый файл xls 
+# todo 4. смотрю как можно писать данные в существующий файл через xlwings 
+
+# кеширование
+# todo 5. вместе смотрим механизм как определять последнюю дату загруженных данных и обновлять их начиная с этой даты 
+#         см. get_latest_date() method in DatabaseManager
+
+# done 6. черех dataset https://dataset.readthedocs.org/en/latest/ приделаю базу данных SQLite для кеширования данных
+# todo 6+1. как добывать данные из базы данных для фрейма? где-то нужен список всех переменных, причем в разбивке по фреймам
+
+# расширение
+# not todo 7. дописываем импорт других данных из doc/roots.md 
+# not todo 8. возможно делаем код пакетом, чтобы убрать в отдельную папку, а итоговые файлы и методы высокого уровня (типа UpdateDataset - обновить все данные), тоже в корневую папку. 9. подумать как можно автоматически запускать такой updatedataset на удаленной машине (у меня была попытка, но не очень получилось)
+
+# todo 9. небольшие todo в тексте cbr_soap.py и test_.py 
