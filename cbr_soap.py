@@ -380,12 +380,11 @@ if __name__ == "__main__":
     # print(d.dicts())
     
     df = Outputs().df[['name', 'value', 'date']]
-    df = df.set_index('date')
+    df.index = df.date
     dix = df.duplicated(keep = False)
-    z = df[dix].loc['2016-03-14','name']
-    assert len(z) == len(set(z))
+    assert len(df[dix]) == 0
     #problem: I do not understand where there is duplication in my data
-    #         this duplication causes pivot to fail below
+    #         but this duplication causes pivot method to fail below
     df.pivot(columns='name', values='value', index='date')
     
     
