@@ -22,13 +22,18 @@ def test_yield_ruonia():
                      ('ruonia_rate', '2016-03-15',  11.10), 
                      ('ruonia_vol',  '2016-03-15', 185.87)]
                      
-    RUONIA_SAMPLE = list(cbr_soap.as_dict(*x) for x in RUONIA_VALUES)                    
-    assert RUONIA_SAMPLE == list(cbr_soap.yield_ruonia(start = SAMPLE_DATE_START, end = SAMPLE_DATE_END))
+    RUONIA_SAMPLE = list(cbr_soap.as_dict(*x) for x in RUONIA_VALUES)
+    ruonia_response = list(cbr_soap.yield_ruonia(start = SAMPLE_DATE_START, end = SAMPLE_DATE_END))    
+
+    assert RUONIA_SAMPLE == ruonia_response 
 
 def test_ruonia_df():
-    ruonia_df = cbr_soap.Frame("ruonia", SAMPLE_DATE_START, SAMPLE_DATE_END).df # make_df(yield_ruonia(start, end))
+    ruonia_df = cbr_soap.Stream("ruonia", SAMPLE_DATE_START, SAMPLE_DATE_END).df # make_df(yield_ruonia(start, end))
     SAMPLE_CSV_REPR = "'date,ruonia_rate,ruonia_vol\\n2016-03-14,11.07,150.46\\n2016-03-15,11.1,185.87\\n'"
+    #import pdb; pdb.set_trace()
     assert SAMPLE_CSV_REPR == ruonia_df.to_csv().__repr__()     
+
+#test_ruonia_df()
     
 
 def test_Parameters():

@@ -255,20 +255,41 @@ def yield_eur(start, end):
     currency_code = 'R01239'
     return yield_curs(start, end, currency_code)    
 
-class Stream():
+    
+class Frame():
+
+    def __init__(self, gen):
+        self.make_dataframe(gen)
+    
+    def make_dataframe(self, gen):
+        df = pd.DataFrame(gen)
+        #dix = df.duplicated
+        #df = df.pivot(columns='name', values='value', index='date')
+        #df.index = pd.to_datetime(df.index)
+        self.df = df
+    
+    def to_csv(self, path):
+        self.df.to_csv(path)
+        
+    @property
+    def dataframe():
+        return self.df 
+
+    
+class Stream(Frame):
 
     db = dataset.connect('sqlite:///cbr.db')
-    table = db['datapoints']
+    data_table = db['datapoints']
 
-    # to de used in Stream class, may use Ordered dict
     functions = {'ruonia':yield_ruonia, 'usdrur': yield_usd, 'eurrur':yield_eur, 'mkr':yield_mkr}
 
     def __init__(self, operation, start=None, end=None):
         self.operation = operation  
         self.clean_interval(start, end)
+        Frame.__init__(self, self.get_stream())
     
     def clean_interval(self, start, end):
-        """Start and end dates for data import based on incomplete inputs""" 
+        """Start, end dates based on incomplete inputs""" 
         self.start, self.end = None, None 
         if start is not None and end is not None:  
             self.start, self.end = start, end       
@@ -279,54 +300,52 @@ class Stream():
 
         # not todo: check start, end type 
         #           check start > end
+        #           ambigious behaviour on one input 
         
     def get_stream(self):
-        #warning: unstable order of id,value,name,date
+        #warning: unstable order of id,value,name,date -> later affects Database.freeze() output 
         return self.functions[self.operation](self.start, self.end)  
+    
+    def to_csv(self):
+        filename = os.path.join(CSV_FOLDER, self.operation +  ".csv")
+        self.df.to_csv(filename)
+        return self.df
     
     def to_sql(self):
         gen = self.get_stream()
-        # need insert_many(gen) with chucks and update
+        # note: better insert_many(gen) with chucks and update
         for d in gen:
-            self.table.upsert(d, keys = ['date','name','value'])
-            
-        
-class Frame(Stream):
- 
-    def __init__(self, operation, start=None, end=None):
-        Stream.__init__(self, operation, start, end)
-        self.make_dataframe()        
-
-    def make_dataframe(self):
-        gen = self.get_stream()
-        df = pd.DataFrame(gen)
-        df = df.pivot(columns='name', values='value', index='date')
-        df.index = pd.to_datetime(df.index)
-        self.df = df      
+            self.data_table.upsert(d, keys = ['date','name','value'])
     
-    def to_csv(self):
-        filename = os.path.join(CSV_FOLDER, self.operation +  ".csv")        
-        self.df.to_csv(filename)
-        return self.df
 
-class DatabaseManager(Stream):
+class Database(Stream):
     
     def __init__(self):
         pass
     
-    def load_all(self):
+    def insert_all(self):
         for ticker in self.functions.keys():
             print("Updating: " + ticker)
             Stream(ticker).to_sql()  
     
     def freeze(self):
-        dataset.freeze(self.table.all(), format='csv', filename='db.txt')   
+        dataset.freeze(self.data_table.all(), format='csv', filename='db.txt')   
     
-    def get_latest_date(self):
-        #return latest (common) date in for all time series 
-        pass
-        
+    #def get_latest_date(self):
+    #    # not todo: return latest (common) date in for all time series 
+    #    pass
+    
+    def dicts(self):  
+        return [dict(od) for od in self.data_table.all()]    
 
+class Outputs(Frame):
+    def __init__(self):        
+        Frame.__init__(self, gen = Database().dicts())
+        
+    def write(self):    
+        self.to_csv("cbr.txt")
+        self.to_excel("cbr.xls")
+        
 def save_currencies():
     currencies = pd.DataFrame(yield_currencies())
     currencies.index = currencies.name
@@ -352,13 +371,25 @@ if __name__ == "__main__":
     #mkr = Frame("mkr", start, end).to_csv()    
    
     # ставка ruonia
-    ruonia_df = Frame("ruonia", start, end).to_csv()
+    #ruonia_df = Stream("ruonia", start, end).to_csv()
     #Frame("ruonia", start, end).to_sql()
     
-    d = DatabaseManager()
-    d.load_all()
-    d.freeze()
+    d = Database()
+    # d.insert_all()
+    # d.freeze()
+    # print(d.dicts())
     
+    df = Outputs().df[['name', 'value', 'date']]
+    df = df.set_index('date')
+    dix = df.duplicated(keep = False)
+    z = df[dix].loc['2016-03-14','name']
+    assert len(z) == len(set(z))
+    #problem: I do not understand where there is duplication in my data
+    #         this duplication causes pivot to fail below
+    df.pivot(columns='name', values='value', index='date')
+    
+    
+# -------------------------------------------------------------------------------------------------------------------------------
 #Tenatative list: 
 
 # подготовительное
@@ -373,7 +404,7 @@ if __name__ == "__main__":
 # todo 5. вместе смотрим механизм как определять последнюю дату загруженных данных и обновлять их начиная с этой даты 
 #         см. get_latest_date() method in DatabaseManager
 
-# done 6. черех dataset https://dataset.readthedocs.org/en/latest/ приделаю базу данных SQLite для кеширования данных
+# done 6. через dataset https://dataset.readthedocs.org/en/latest/ приделаю базу данных SQLite для кеширования данных
 # todo 6+1. как добывать данные из базы данных для фрейма? где-то нужен список всех переменных, причем в разбивке по фреймам
 
 # расширение
