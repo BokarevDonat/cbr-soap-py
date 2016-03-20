@@ -200,7 +200,7 @@ def yield_currencies():
 def yield_curs(start, end, code):
     response = Response('GetCursDynamic', start, end, code).get()
     for x in response.find_all('valutecursdynamic'):
-        yield as_dict('USDRUR_CBR', get_date(x.cursdate.text), float(x.vcurs.text))
+        yield get_date(x.cursdate.text), float(x.vcurs.text)
 
         
 def yield_mkr(start, end):
@@ -245,15 +245,16 @@ def yield_mkr(start, end):
         yield as_dict(prefix + 'd360', dt, _filter(x.d360))
 
 
-    
-
 def yield_usd(start, end):
     currency_code = 'R01235'
-    return yield_curs(start, end, currency_code)
-    
+    for date, val in yield_curs(start, end, currency_code):
+        yield as_dict('USDRUR_CBR', date, val)
+
+
 def yield_eur(start, end):
     currency_code = 'R01239'
-    return yield_curs(start, end, currency_code)    
+    for date, val in yield_curs(start, end, currency_code):
+        yield as_dict('EURRUR_CBR', date, val)
 
     
 class Frame():
