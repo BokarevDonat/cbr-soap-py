@@ -166,8 +166,7 @@ class Response():
     def get(self):
         return self.response
         
-def as_dict(*t):
-    # todo: must check t[0] is datetime, t[1] is date, t[2] is float or None
+def as_dict(*t):   
     return {'name': t[0], 'date': t[1], 'value': t[2]}
 
 def get_date(txt):
@@ -263,14 +262,16 @@ class Frame():
         self.make_dataframe(gen)
     
     def make_dataframe(self, gen):
-        df = pd.DataFrame(gen)
-        #dix = df.duplicated
-        #df = df.pivot(columns='name', values='value', index='date')
-        #df.index = pd.to_datetime(df.index)
+        self.raw_df = pd.DataFrame(gen)
+        df = self.raw_df.pivot(columns='name', values='value', index='date')
+        df.index = pd.to_datetime(df.index)
         self.df = df
     
     def to_csv(self, path):
         self.df.to_csv(path)
+        
+    def to_excel(self, path):
+        self.df.to_excel(path)
         
     @property
     def dataframe():
@@ -297,7 +298,7 @@ class Stream(Frame):
         elif end is None:
             self.end = datetime.now()
             if start is None:
-                self.start = datetime.now() - timedelta(days=7)
+                self.start = datetime.now() - timedelta(days=30)
 
         # not todo: check start, end type 
         #           check start > end
@@ -311,10 +312,10 @@ class Stream(Frame):
         filename = os.path.join(CSV_FOLDER, self.operation +  ".csv")
         self.df.to_csv(filename)
         return self.df
-    
+        
     def to_sql(self):
         gen = self.get_stream()
-        # note: better insert_many(gen) with chucks and update
+        # note: better insert_many(gen) with chucks and update - very slow if many datapoints
         for d in gen:
             self.data_table.upsert(d, keys = ['date','name','value'])
     
@@ -324,7 +325,7 @@ class Database(Stream):
     def __init__(self):
         pass
     
-    def insert_all(self):
+    def update_all(self):
         for ticker in self.functions.keys():
             print("Updating: " + ticker)
             Stream(ticker).to_sql()  
@@ -355,60 +356,71 @@ def save_currencies():
     
 if __name__ == "__main__":
         
-    start = datetime(2016, 3, 13)
-    end = datetime(2016, 3, 15)
+    #start = datetime(2016, 3, 13)
+    #end = datetime(2016, 3, 15)
     
     # 'currencies.csv' has useful currency codes like EUR, USD may use for column names in dataframe
     #save_currencies()
     
-    # todo: try check why usd and eur exchange rates are only one data point, should be two for these start and end dates (two woring days)
     # usd/rur exhange rate
-    #usd_rate = Frame("usdrur", start, end).to_csv()
+    usd_rate = Frame("usdrur", start, end).to_csv()
     
     # eur/rur exhange rate
-    #eur_rate = Frame("eurrur", start, end).to_csv()
+    eur_rate = Frame("eurrur", start, end).to_csv()
     
     # mkr, cтавки и объемы межбанковского кредитного рынка
-    #mkr = Frame("mkr", start, end).to_csv()    
+    mkr = Frame("mkr", start, end).to_csv()    
    
     # ставка ruonia
-    #ruonia_df = Stream("ruonia", start, end).to_csv()
+    ruonia_df = Stream("ruonia", start, end).to_csv()
     #Frame("ruonia", start, end).to_sql()
     
     d = Database()
-    # d.insert_all()
+    d.update_all()
     # d.freeze()
-    # print(d.dicts())
     
-    df = Outputs().df[['name', 'value', 'date']]
-    df.index = df.date
-    dix = df.duplicated(keep = False)
-    assert len(df[dix]) == 0
-    #problem: I do not understand where there is duplication in my data
-    #         but this duplication causes pivot method to fail below
-    df.pivot(columns='name', values='value', index='date')
+    out = Outputs()
+    print(out.df)
+    out.write()
+
     
     
 # -------------------------------------------------------------------------------------------------------------------------------
-#Tenatative list: 
 
-# подготовительное
-# done 1. немного на свой вкус переструктурировать классы - от вас нужен будет комментарий по результатам что у меня получилось 
-# done 2. assert из main переписываю в тесты py.test дальше добавляем тесты по мере добавления нового кода 
+# Mostly done / для комментариев
+# - [ ] немного на свой вкус переструктурировать классы - от вас нужен будет комментарий по результатам что у меня получилось 
+# *** нужен комментарий по качеству реализации классов. мне не особо нравится что yield* функции где-то висят, но убирать их в какой-то класс тоже не хочется
 
-# итоговая выгрузка
-# todo 3. несколько рядов данных упаковываю в датафрейм, его пишу в новый файл xls 
-# todo 4. смотрю как можно писать данные в существующий файл через xlwings 
+# - [ ] assert из main переписываю в тесты py.test дальше добавляем тесты по мере добавления нового кода 
+# *** нужны предложения по расширению tests coverage в критических местах + 1 todo в test_.py
 
-# кеширование
-# todo 5. вместе смотрим механизм как определять последнюю дату загруженных данных и обновлять их начиная с этой даты 
-#         см. get_latest_date() method in DatabaseManager
+# - [ ] несколько рядов данных упаковываю в датафрейм, его пишу в новый файл xls 
+# *** вроде все работает 
 
-# done 6. через dataset https://dataset.readthedocs.org/en/latest/ приделаю базу данных SQLite для кеширования данных
-# todo 6+1. как добывать данные из базы данных для фрейма? где-то нужен список всех переменных, причем в разбивке по фреймам
+# - [ ] через dataset https://dataset.readthedocs.org/en/latest/ приделаю базу данных SQLite для кеширования данных
 
-# расширение
-# not todo 7. дописываем импорт других данных из doc/roots.md 
-# not todo 8. возможно делаем код пакетом, чтобы убрать в отдельную папку, а итоговые файлы и методы высокого уровня (типа UpdateDataset - обновить все данные), тоже в корневую папку. 9. подумать как можно автоматически запускать такой updatedataset на удаленной машине (у меня была попытка, но не очень получилось)
 
-# todo 9. небольшие todo в тексте cbr_soap.py и test_.py 
+# todo:
+# - [ ] как необходмио знать на стадии заполнения какие имена переменных у нас в базе данных, причем в разбивке по тематикам (источникам)
+#       + этот список переменных испоьзвать для сортировки колонок в датафрейме Outputs().df
+#       видимо где-то нужен список переменных завести для этого
+#       вопрос не в том чтобы из базы посмотреть список уникальных переменных, а иметь свой список переменных в виед константы для 
+#       управления колонками + что измениться если писать cbr.xls на несколько шитов по тематикам
+# - [ ] смотрим механизм как определять последнюю дату загруженных данных и обновлять их начиная с этой даты будет ли эта дата одна для всех серий и где хранится
+ # - [ ] аналогично нужно как-то знать исходныю дату заполнения каждйо operations
+#  смотрим механизм как определять последнюю дату загруженных данных и обновлять их начиная с этой даты
+# - [ ] requirements.txt?
+
+  
+# not todo / later, но можно комментирвоать 
+# - [ ] переместить часть закомментированного кода в скриптовой части в тесты - по аналогии с ruonia
+# - [ ] try check why usd and eur exchange rates are only one data point, should be two for these start and end dates (two working days)
+# - [ ] дописываем импорт других данных из doc/roots.md 
+# - [ ] возможно делаем код пакетом, чтобы убрать в отдельную папку, а итоговые файлы и методы высокого уровня (типа UpdateDataset - обновить все данные), тоже в корневую папку. 9. подумать как можно автоматически запускать такой updatedataset на удаленной машине (у меня была попытка, но не очень получилось)
+# - [ ] save_currencies() может быть отдельным шитом в cbr.xls или отдельным файлом
+# - [ ] оформеление xls файла - https://github.com/epogrebnyak/rosstat-806-regional/blob/master/xls_write.py
+
+# very much later / не комментируем
+# - [ ] смотрю как можно писать данные в существующий файл через xlwings 
+
+# -------------------------------------------------------------------------------------------------------------------------------
