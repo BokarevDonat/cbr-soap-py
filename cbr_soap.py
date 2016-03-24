@@ -172,6 +172,124 @@ def as_dict(*t):
 def get_date(txt):
     return parse_dt(txt).strftime('%Y-%m-%d')
 
+
+def yield_bicurbacket():
+    response = Response('BiCurBacket').get()
+    # TODO: *** KeyError: 'BiCurBacket'
+
+
+def yield_bauction(start, end):
+    response = Response('Bauction', start, end).get()
+    # TODO: ответ всегда пустой?
+
+
+def yield_bicurbase(start, end):
+    response = Response('BiCurBase', start, end).get()
+    for x in response.find_all('bcb'):
+        dt = get_date(x.d0.text)
+        yield as_dict('bcb_val', dt, float(x.val.text))
+
+
+def yield_overnight(start, end):
+    response = Response('Overnight', start, end).get()
+    for x in response.find_all('ob'):
+        dt = get_date(x.date.text)
+        yield as_dict('overnight_stavka', dt, float(x.stavka.text))
+
+
+def yield_repo_debt(start, end):
+    response = Response('Repo_debt', start, end).get()
+    for x in response.find_all('rd'):
+        dt = get_date(x.date.text)
+        yield as_dict('debt_debt', dt, float(x.debt.text))
+        yield as_dict('debt_debtauc', dt, float(x.debt_auc.text))
+        yield as_dict('debt_debtfix', dt, float(x.debt_fix.text))
+
+
+def yield_dv(start, end):
+    response = Response('DV', start, end).get()
+    for x in response.find_all('dv'):
+        dt = get_date(x.date.text)
+        yield as_dict('dv_vovern', dt, float(x.vovern.text))
+        yield as_dict('dv_vlomb', dt, float(x.vlomb.text))
+        yield as_dict('dv_viday', dt, float(x.dv_viday.text))
+        yield as_dict('dv_vother', dt, float(x.vother.text))
+        yield as_dict('dv_vol_gold', dt, float(x.vol_gold.text))
+        yield as_dict('dv_vidate', dt, get_date(x.vidate.text))
+
+
+def yield_roisfix(start, end):
+    response = Response('ROISfix', start, end).get()
+    for x in response.find_all('rf'):
+        dt = get_date(x.d0.text)
+        yield as_dict('roisfix_r1w', dt, float(x.r1w.text))
+        yield as_dict('roisfix_r2w', dt, float(x.r2w.text))
+        yield as_dict('roisfix_r1m', dt, float(x.r1m.text))
+        yield as_dict('roisfix_r2m', dt, float(x.r2m.text))
+        yield as_dict('roisfix_r3m', dt, float(x.r3m.text))
+        yield as_dict('roisfix_r6m', dt, float(x.r6m.text))
+
+
+def yield_saldo(start, end):
+    response = Response('Saldo', start, end).get()
+    for x in response.find_all('so'):
+        dt = get_date(x.dt.text)
+        yield as_dict('saldo_deadlinebs', dt, float(x.deadlinebs.text))
+
+
+def yield_mrrf7d(start, end):
+    response = Response('mrrf7D', start, end).get()
+    for x in response.find_all('mr'):
+        dt = get_date(x.d0.text)
+        yield as_dict('mrrf7D_val', dt, float(x.val.text))
+
+
+def yield_mrrf(start, end):
+    response = Response('mrrf', start, end).get()
+    for x in response.find_all('mr'):
+        dt = get_date(x.d0.text)
+        yield as_dict('mrrf_p1', dt, float(x.p1.text))
+        yield as_dict('mrrf_p2', dt, float(x.p2.text))
+        yield as_dict('mrrf_p3', dt, float(x.p3.text))
+        yield as_dict('mrrf_p4', dt, float(x.p4.text))
+        yield as_dict('mrrf_p5', dt, float(x.p5.text))
+        yield as_dict('mrrf_p6', dt, float(x.p6.text))
+
+
+def yield_ostatdepo(start, end):
+    response = Response('OstatDepo', start, end).get()
+    for x in response.find_all('odr'):
+        dt = get_date(x.d0.text)
+        d1_7 = float(x.d1_7.text)
+        total = float(x.total.text)
+        yield as_dict('ostatdepo_d17', dt, d1_7)
+        yield as_dict('ostatdepo_total', dt, total)
+
+
+def yield_ostat(start, end):
+    response = Response('OstatDynamic', start, end).get()
+    for x in response.find_all('ostat'):
+        dt = get_date(x.dateost.text)
+        inruss = float(x.inruss.text)
+        inmoscow = float(x.inmoscow.text)
+        yield as_dict('ostat_inruss', dt, inruss)
+        yield as_dict('ostat_inmoscow', dt, inmoscow)
+
+
+def yield_depo(start, end):
+    response = Response('DepoDynamic', start, end).get()
+    for x in response.find_all('depo'):
+        dt = get_date(x.datedepo.text)
+        overnight = float(x.overnight.text)
+        tomnext = float(x.tomnext.text)
+        spotnext = float(x.spotnext.text)
+        calldeposit = float(x.calldeposit.text)
+        yield as_dict('depo_overnight', dt, overnight)
+        yield as_dict('depo_tomnext', dt, tomnext)
+        yield as_dict('depo_spotnext', dt, spotnext)
+        yield as_dict('depo_calldeposit', dt, calldeposit)
+
+
 def yield_ruonia(start, end):
     response = Response('Ruonia', start, end).get()
     for x in response.find_all('ro'):
