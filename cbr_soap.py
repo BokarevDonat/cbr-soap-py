@@ -446,16 +446,7 @@ if __name__ == "__main__":
 # - [ ] аналогично нужно как-то знать исходныю дату заполнения каждйо operations
 #
 # Что имеется ввиду? Дату когда был закеширован wsdl-info?
-#
-#
-# - [ ] requirements.txt?
-#
-# git+git@github.com:pysimplesoap/pysimplesoap.git@07ab7217ccc2572d40ad36c73867fc9be8fe2794#egg=pysimplesoap
-# lxml==3.5.0
-# beautifulsoup4==4.4.1
-# pandas==0.18.0
-# python-dateutil==2.5.0
-# requests==2.9.1
+
 
 
 # not todo / later, но можно комментирвоать 
