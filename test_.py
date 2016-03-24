@@ -7,10 +7,10 @@ SAMPLE_DATE_END = datetime(2016, 3, 15)
 
 def test_param_string():
     WEB_1 = '<web:fromDate>2016-03-13</web:fromDate><web:ToDate>2016-03-15</web:ToDate>'
-    assert WEB_1 == cbr_soap.Response('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).make_xml_parameter_string()
+    assert WEB_1 == cbr_soap.SoapRequest('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).make_xml_parameter_string()
 
 def test_cbr_call(): 
-    response = cbr_soap.Response('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).get()
+    response = cbr_soap.SoapRequest('Ruonia', SAMPLE_DATE_START, SAMPLE_DATE_END).send()
     assert(isinstance(response, BeautifulSoup))
 
     reference = BeautifulSoup(reference_ruonia_xml_string().strip(), 'lxml')

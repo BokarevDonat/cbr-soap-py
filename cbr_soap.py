@@ -27,15 +27,12 @@ from pysimplesoap.client import SoapClient
 
 CSV_FOLDER = 'csv'
 
-
-class SourceAddress():
-    cbr_namespace = "http://web.cbr.ru/"
-    url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
-    wsdl_url = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?wsdl"
+CBR_NAMESPACE = "http://web.cbr.ru/"
+SOAP_URL = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"
+WSDL_URL = "http://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx?wsdl"
 
 
-class WDSL(SourceAddress):
-    
+class WSDL(object):
     cache_file_name = 'wsdl_cache.pickle'
     
     def __init__(self):
@@ -49,9 +46,8 @@ class WDSL(SourceAddress):
             self.wsdl_info = pickle.load(f)
     
     def convert_wsdl_info_to_pickable(self):    
-        """Convert unpicklable Struct to OrderedDict"""
+        """ Convert unpicklable Struct to OrderedDict """
         for op in self.wsdl_info:
-        
             # pointer links to 'self.wsdl_info', all changes in pointer are recorded in 'self.wsdl_info'
             pointer = self.wsdl_info[op]['input']
             for x in pointer:
@@ -65,56 +61,54 @@ class WDSL(SourceAddress):
             pickle.dump(self.wsdl_info, f) 
 
     def load_from_cbr(self):
-        client = SoapClient(wsdl=self.wsdl_url, namespace=self.cbr_namespace, trace=False)
-        self.wsdl_info = client.wsdl_parse(self.wsdl_url)['DailyInfo']['ports']['DailyInfoSoap']['operations']
-        self.convert_wsdl_info_to_pickable() 
+        client = SoapClient(wsdl=WSDL_URL, namespace=self.cbr_namespace, trace=False)
+        self.wsdl_info = client.wsdl_parse(WSDL_URL)['DailyInfo']['ports']['DailyInfoSoap']['operations']
+        self.convert_wsdl_info_to_pickable()
         self.save_local_copy()
 
-        
-class Parameters(WDSL):
-    """ Get WSDL parameters based on *operation* name
-     
-        Accepts as *operation*:
-        
-        'GetReutersCursOnDate', 'Repo_debt', 'SwapDynamic', 'mrrf', 'ROISfix', 'MKRXML', 'SwapDayTotalXML', 
-        'Overnight', 'BiCurBacketXML', 'XVolXML', 'SwapInfoSellUSDVolXML', 'GetReutersCursDynamic', 'GetCursOnDate', 
-        'BiCurBaseXML', 'EnumValutesXML', 'GetCursOnDateXML', 'DV', 'RuoniaXML', 'Repo_debtXML', 'GetSeldCursOnDateXML', 
-        'RepoDebtUSD', 'NewsInfo', 'GetLatestReutersDateTime', 'DragMetDynamic', 'EnumReutersValutesXML', 'SwapInfoSellUSDVol', 
-        'GetLatestDate', 'EnumValutes', 'OstatDynamicXML', 'SwapDayTotal', 'DVXML', 'OstatDepo', 'MKR', 'Bauction', 
-        'SwapDynamicXML', 'SwapMonthTotalXML', 'BiCurBacket', 'SaldoXML', 'DepoDynamic', 'NewsInfoXML', 'GetCursDynamic', 
-        'Coins_baseXML', 'BiCurBase', 'DragMetDynamicXML', 'ROISfixXML', 'Coins_base', 'BauctionXML', 'MainInfoXML', 'Saldo', 
-        'Ruonia', 'AllDataInfoXML', 'GetLatestDateTime', 'mrrf7D', 'SwapInfoSellUSD', 'mrrfXML', 'SwapMonthTotal', 'DepoDynamicXML', 
-        'GetLatestDateSeld', 'GetLatestDateTimeSeld', 'OmodInfoXML', 'GetReutersCursDynamicXML', 'mrrf7DXML', 'EnumReutersValutes', 
-        'FixingBaseXML', 'RepoDebtUSDXML', 'SwapInfoSellUSDXML', 'GetCursDynamicXML', 'GetReutersCursOnDateXML', 'OvernightXML', 
-        'OstatDynamic', 'OstatDepoXML', 'GetSeldCursOnDate', 'XVol', 'FixingBase'
-    """
-    
-    def __init__(self, operation):
-        WDSL.__init__(self)
+    def get_input_params(self, operation):
+        """ Get WSDL parameters based on *operation* name
+
+            Accepts as *operation*:
+
+            'GetReutersCursOnDate', 'Repo_debt', 'SwapDynamic', 'mrrf', 'ROISfix', 'MKRXML', 'SwapDayTotalXML',
+            'Overnight', 'BiCurBacketXML', 'XVolXML', 'SwapInfoSellUSDVolXML', 'GetReutersCursDynamic', 'GetCursOnDate',
+            'BiCurBaseXML', 'EnumValutesXML', 'GetCursOnDateXML', 'DV', 'RuoniaXML', 'Repo_debtXML', 'GetSeldCursOnDateXML',
+            'RepoDebtUSD', 'NewsInfo', 'GetLatestReutersDateTime', 'DragMetDynamic', 'EnumReutersValutesXML', 'SwapInfoSellUSDVol',
+            'GetLatestDate', 'EnumValutes', 'OstatDynamicXML', 'SwapDayTotal', 'DVXML', 'OstatDepo', 'MKR', 'Bauction',
+            'SwapDynamicXML', 'SwapMonthTotalXML', 'BiCurBacket', 'SaldoXML', 'DepoDynamic', 'NewsInfoXML', 'GetCursDynamic',
+            'Coins_baseXML', 'BiCurBase', 'DragMetDynamicXML', 'ROISfixXML', 'Coins_base', 'BauctionXML', 'MainInfoXML', 'Saldo',
+            'Ruonia', 'AllDataInfoXML', 'GetLatestDateTime', 'mrrf7D', 'SwapInfoSellUSD', 'mrrfXML', 'SwapMonthTotal', 'DepoDynamicXML',
+            'GetLatestDateSeld', 'GetLatestDateTimeSeld', 'OmodInfoXML', 'GetReutersCursDynamicXML', 'mrrf7DXML', 'EnumReutersValutes',
+            'FixingBaseXML', 'RepoDebtUSDXML', 'SwapInfoSellUSDXML', 'GetCursDynamicXML', 'GetReutersCursOnDateXML', 'OvernightXML',
+            'OstatDynamic', 'OstatDepoXML', 'GetSeldCursOnDate', 'XVol', 'FixingBase'
+        """
         if operation not in self.wsdl_info.keys():
-            raise KeyError ("Operation not recognised:" + operation)
+            raise KeyError("Operation not recognised:" + operation)
         op_info = self.wsdl_info[operation]
-        self.dict = op_info['input'][operation]
+        return op_info['input'][operation]
 
-        
-class POST_Request(SourceAddress):
-    def __init__(self, body, headers):
-        self.body = body
-        self.headers = headers
 
-    def get(self):
-        response = requests.post(self.url, data=self.body, headers=self.headers)
+class SoapRequest(object):
+    def __init__(self, operation, *args):
+        self.operation = operation
+        self.args = args
+        self.wsdl_info = WSDL()
+        self.body = self.make_body()
+        self.headers = self.make_headers()
+
+    def send(self):
+        """ Send POST request. Return xml tree of response. """
+        response = requests.post(SOAP_URL, data=self.body, headers=self.headers)
         return BeautifulSoup(response.content, 'lxml')
-
-class Response():
 
     def make_xml_parameter_string(self):
         """ Make string of parameters for POST XML based on *operation* name and *args"""
-        
-        op_params = Parameters(self.operation).dict
+
+        op_params = self.wsdl_info.get_input_params(self.operation)
 
         if len(self.args) != len(op_params):
-            raise Exception('Operation %s requires following arguements: %s' % (operation, op_params))
+            raise Exception('Operation %s requires following arguements: %s' % (self.operation, op_params))
 
         self.param_string = ''
         for i, param in enumerate(op_params):
@@ -124,14 +118,12 @@ class Response():
             if op_params[param] is bool:
                 value = str(value).lower()
             self.param_string += '<web:%(param)s>%(val)s</web:%(param)s>' % {'param': param, 'val': value}
-        
+
         return self.param_string
 
-
     def make_body(self):
-    
-        self.make_xml_parameter_string()        
-    
+        self.make_xml_parameter_string()
+
         return """<?xml version="1.0" encoding="utf-8"?>
         <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="%(ns)s">
         <soapenv:Header/>
@@ -142,7 +134,7 @@ class Response():
         </soapenv:Body>
         </soapenv:Envelope>
         """ % {
-            'ns': SourceAddress().cbr_namespace,
+            'ns': CBR_NAMESPACE,
             'operation': self.operation,
             'params': self.param_string
         }
@@ -154,18 +146,12 @@ class Response():
         }
 
 
-    def __init__(self, operation, *args):
-        """SOAP call to CBR backend"""
-        
-        self.operation = operation
-        self.args = args
-        xml_body = self.make_body()    
-        headers = self.make_headers()
-        self.response = POST_Request(xml_body, headers).get()
-    
-    def get(self):
-        return self.response
-        
+def call_cbr(operation, *args):
+    request = SoapRequest(operation, *args)
+    response = request.send()
+    return response
+
+
 def as_dict(*t):   
     return {'name': t[0], 'date': t[1], 'value': t[2]}
 
@@ -173,7 +159,7 @@ def get_date(txt):
     return parse_dt(txt).strftime('%Y-%m-%d')
 
 def yield_ruonia(start, end):
-    response = Response('Ruonia', start, end).get()
+    response = call_cbr('Ruonia', start, end)
     for x in response.find_all('ro'):
         dt = get_date(x.d0.text)
         ir = float(x.ruo.text)
@@ -183,7 +169,7 @@ def yield_ruonia(start, end):
 
         
 def yield_currencies():
-    response = Response('EnumValutes', False).get()
+    response = call_cbr('EnumValutes', False)
     for x in response.find_all('enumvalutes'):
         result = {
             'code': x.vcode.text.strip(),
@@ -197,7 +183,7 @@ def yield_currencies():
 
 
 def yield_curs(start, end, code):
-    response = Response('GetCursDynamic', start, end, code).get()
+    response = call_cbr('GetCursDynamic', start, end, code)
     for x in response.find_all('valutecursdynamic'):
         yield get_date(x.cursdate.text), float(x.vcurs.text)
 
@@ -356,8 +342,9 @@ def save_currencies():
     
 if __name__ == "__main__":
         
-    #start = datetime(2016, 3, 13)
-    #end = datetime(2016, 3, 15)
+    start = datetime(2016, 3, 13)
+    end = datetime(2016, 3, 15)
+    import ipdb; ipdb.set_trace()
     
     # 'currencies.csv' has useful currency codes like EUR, USD may use for column names in dataframe
     #save_currencies()
